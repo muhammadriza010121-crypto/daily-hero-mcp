@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: daily-hero-mcp
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    plan: free
+    envVars:
+      - key: DAILY_HERO_API_KEY
+        sync: false
+      - key: DAILY_HERO_BASE_URL
+        value: https://daily-hero.vercel.app
+      - key: PORT
+        value: "8000"

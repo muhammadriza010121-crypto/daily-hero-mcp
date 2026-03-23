@@ -236,11 +236,19 @@ async def get_analytics(period: str = "week") -> str:
 
 _mcp_app = mcp.streamable_http_app()
 
-# Wrap to bypass TrustedHostMiddleware (Render/Cloudflare sends varying Host headers)
-from starlette.applications import Starlette
-from starlette.routing import Mount
+# Bypass TrustedHostMiddleware by rewriting Host header
+class HostFixMiddleware:
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            # Replace headers to set Host to localhost
+            headers = [(k, v) for k, v in scope.get("headers", []) if k != b"host"]
+            headers.append((b"host", b"localhost"))
+            scope["headers"] = headers
+        await self.app(scope, receive, send)
 
-app = Starlette(routes=[Mount("/", app=_mcp_app)])
+app = HostFixMiddleware(_mcp_app)
 
 if __name__ == "__main__":
     import uvicorn

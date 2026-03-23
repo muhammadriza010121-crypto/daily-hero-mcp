@@ -234,7 +234,13 @@ async def get_analytics(period: str = "week") -> str:
 # ЗАПУСК
 # ============================================================
 
-app = mcp.streamable_http_app()
+_mcp_app = mcp.streamable_http_app()
+
+# Wrap to bypass TrustedHostMiddleware (Render/Cloudflare sends varying Host headers)
+from starlette.applications import Starlette
+from starlette.routing import Mount
+
+app = Starlette(routes=[Mount("/", app=_mcp_app)])
 
 if __name__ == "__main__":
     import uvicorn

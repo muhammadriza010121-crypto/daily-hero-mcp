@@ -9,7 +9,12 @@ BASE_URL = os.environ.get("DAILY_HERO_BASE_URL", "https://daily-hero.vercel.app"
 API_KEY = os.environ.get("DAILY_HERO_API_KEY", "")
 HEADERS = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
 
-mcp = FastMCP("Daily Hero", stateless_http=True)
+mcp = FastMCP(
+    "Daily Hero",
+    stateless_http=True,
+    host="0.0.0.0",
+    port=int(os.environ.get("PORT", 8000)),
+)
 
 
 async def _get(path: str, params: dict | None = None) -> str:
@@ -234,23 +239,5 @@ async def get_analytics(period: str = "week") -> str:
 # ЗАПУСК
 # ============================================================
 
-_mcp_app = mcp.streamable_http_app()
-
-# Bypass TrustedHostMiddleware by rewriting Host header
-class HostFixMiddleware:
-    def __init__(self, app):
-        self.app = app
-    async def __call__(self, scope, receive, send):
-        if scope["type"] in ("http", "websocket"):
-            # Replace headers to set Host to localhost
-            headers = [(k, v) for k, v in scope.get("headers", []) if k != b"host"]
-            headers.append((b"host", b"localhost"))
-            scope["headers"] = headers
-        await self.app(scope, receive, send)
-
-app = HostFixMiddleware(_mcp_app)
-
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    mcp.run(transport="streamable-http")

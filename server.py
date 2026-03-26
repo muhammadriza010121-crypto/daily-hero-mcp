@@ -236,6 +236,148 @@ async def get_analytics(period: str = "week") -> str:
 
 
 # ============================================================
+# ROUTINE (TIMELINE)
+# ============================================================
+
+@mcp.tool()
+async def routine_get_steps() -> str:
+    """Get all routine timeline steps (morning/evening blocks, prayers, etc.)."""
+    return await _get("/api/routine")
+
+
+@mcp.tool()
+async def routine_create_step(
+    title: str,
+    block: str,
+    time_start: str,
+    time_end: str,
+    sort_order: int = 0,
+    icon: str = "",
+    is_active: bool = True,
+) -> str:
+    """Create a routine step. block: morning/evening/prayer. time_start/time_end: HH:MM."""
+    body: dict = {
+        "title": title,
+        "block": block,
+        "time_start": time_start,
+        "time_end": time_end,
+        "sort_order": sort_order,
+        "is_active": is_active,
+    }
+    if icon:
+        body["icon"] = icon
+    return await _post("/api/routine", body)
+
+
+@mcp.tool()
+async def routine_update_step(
+    id: str,
+    title: str = "",
+    block: str = "",
+    time_start: str = "",
+    time_end: str = "",
+    sort_order: int = -1,
+    icon: str = "",
+    is_active: bool = True,
+) -> str:
+    """Update a routine step by id. Pass only fields to change."""
+    body: dict = {"id": id}
+    if title:
+        body["title"] = title
+    if block:
+        body["block"] = block
+    if time_start:
+        body["time_start"] = time_start
+    if time_end:
+        body["time_end"] = time_end
+    if sort_order >= 0:
+        body["sort_order"] = sort_order
+    if icon:
+        body["icon"] = icon
+    body["is_active"] = is_active
+    return await _put("/api/routine", body)
+
+
+@mcp.tool()
+async def routine_delete_step(id: str) -> str:
+    """Delete a routine step by id."""
+    return await _delete("/api/routine", {"id": id})
+
+
+@mcp.tool()
+async def routine_get_entries(date: str) -> str:
+    """Get routine entries (done/skip/miss) for a specific date. date: YYYY-MM-DD."""
+    return await _get("/api/routine/entries", {"date": date})
+
+
+@mcp.tool()
+async def routine_mark_step(step_id: str, date: str, status: str) -> str:
+    """Mark a routine step for a date. status: done / skip / miss / null (clear)."""
+    body: dict = {
+        "step_id": step_id,
+        "date": date,
+        "status": status if status != "null" else None,
+    }
+    return await _post("/api/routine/entries", body)
+
+
+# ============================================================
+# DAY MODE
+# ============================================================
+
+@mcp.tool()
+async def get_day_mode(date: str) -> str:
+    """Get day mode (work/rest/travel/sick) for a date. date: YYYY-MM-DD."""
+    return await _get("/api/routine/day-mode", {"date": date})
+
+
+@mcp.tool()
+async def set_day_mode(date: str, mode: str) -> str:
+    """Set day mode. date: YYYY-MM-DD, mode: work / rest / travel / sick."""
+    return await _post("/api/routine/day-mode", {"date": date, "mode": mode})
+
+
+# ============================================================
+# PRAYER TIMES
+# ============================================================
+
+@mcp.tool()
+async def get_prayer_times(date: str, city: str = "Almaty") -> str:
+    """Get prayer times for a date and city. date: YYYY-MM-DD, city: default Almaty."""
+    return await _get("/api/prayer-times", {"date": date, "city": city})
+
+
+# ============================================================
+# FEEDBACK
+# ============================================================
+
+@mcp.tool()
+async def feedback_list() -> str:
+    """Get all feedback entries (user notes, ideas, bug reports)."""
+    return await _get("/api/feedback")
+
+
+@mcp.tool()
+async def feedback_create(
+    text: str,
+    category: str = "idea",
+    priority: str = "normal",
+) -> str:
+    """Create a feedback entry. category: idea / bug / note. priority: low / normal / high."""
+    return await _post("/api/feedback", {
+        "text": text,
+        "category": category,
+        "priority": priority,
+    })
+
+
+@mcp.tool()
+async def feedback_mark_read(id: str) -> str:
+    """Mark a feedback entry as read by id."""
+    return await _put("/api/feedback", {"id": id, "is_read": True})
+
+
+# ============================================================
 # ЗАПУСК
 # ============================================================
 

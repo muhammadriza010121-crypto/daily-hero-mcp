@@ -378,6 +378,94 @@ async def feedback_mark_read(id: str) -> str:
 
 
 # ============================================================
+# БАЗА ЗНАНИЙ (KNOWLEDGE)
+# ============================================================
+
+@mcp.tool()
+async def knowledge_list(category: str = "") -> str:
+    """Получить все записи базы знаний. Категории: strategies / principles / notes / wisdom. Без параметра — все записи."""
+    params = {}
+    if category:
+        params["category"] = category
+    return await _get("/api/knowledge", params or None)
+
+
+@mcp.tool()
+async def knowledge_search(q: str) -> str:
+    """Поиск по базе знаний (title + content). Возвращает до 20 записей с превью контента."""
+    return await _get("/api/knowledge/search", {"q": q})
+
+
+@mcp.tool()
+async def knowledge_create(
+    title: str,
+    content: str,
+    category: str = "notes",
+    tags: str = "",
+    pinned: bool = False,
+) -> str:
+    """Создать запись в базе знаний. category: strategies / principles / notes / wisdom. tags: через запятую."""
+    body: dict = {
+        "title": title,
+        "content": content,
+        "category": category,
+        "pinned": pinned,
+    }
+    if tags:
+        body["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+    return await _post("/api/knowledge", body)
+
+
+@mcp.tool()
+async def knowledge_update(
+    id: str,
+    title: str = "",
+    content: str = "",
+    category: str = "",
+    tags: str = "",
+    pinned: bool = False,
+) -> str:
+    """Обновить запись базы знаний по id. Передай только поля которые нужно изменить."""
+    body: dict = {"id": id}
+    if title:
+        body["title"] = title
+    if content:
+        body["content"] = content
+    if category:
+        body["category"] = category
+    if tags:
+        body["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+    body["pinned"] = pinned
+    return await _put("/api/knowledge", body)
+
+
+@mcp.tool()
+async def knowledge_delete(id: str) -> str:
+    """Удалить запись из базы знаний по id."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.delete(f"{BASE_URL}/api/knowledge", headers=HEADERS, params={"id": id})
+        return resp.text
+
+
+@mcp.tool()
+async def knowledge_get(id: str) -> str:
+    """Получить полную запись базы знаний по id (с полным контентом)."""
+    # Получаем все и фильтруем — API не поддерживает GET by id
+    result = await _get("/api/knowledge")
+    import json as _json
+    try:
+        data = _json.loads(result)
+        if data.get("ok") and data.get("data"):
+            entry = next((e for e in data["data"] if e["id"] == id), None)
+            if entry:
+                return _json.dumps({"ok": True, "data": entry}, ensure_ascii=False)
+            return _json.dumps({"ok": False, "error": "Entry not found"})
+    except Exception:
+        pass
+    return result
+
+
+# ============================================================
 # ЗАПУСК
 # ============================================================
 

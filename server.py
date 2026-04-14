@@ -466,6 +466,297 @@ async def knowledge_get(id: str) -> str:
 
 
 # ============================================================
+# АКТИВНОСТЬ
+# ============================================================
+
+@mcp.tool()
+async def add_activity(
+    date: str,
+    activity_type: str,
+    duration_min: int,
+    intensity: str = "medium",
+    calories: int = 0,
+    notes: str = "",
+) -> str:
+    """Добавить активность. date: YYYY-MM-DD, activity_type: бег/ходьба/тренажёрка/плавание/йога/другое, duration_min: минуты, intensity: low/medium/high, calories: опционально."""
+    body: dict = {"date": date, "activity_type": activity_type, "duration_min": duration_min, "intensity": intensity}
+    if calories > 0:
+        body["calories"] = calories
+    if notes:
+        body["notes"] = notes
+    return await _post("/api/activity", body)
+
+
+@mcp.tool()
+async def delete_activity(id: str, date: str) -> str:
+    """Удалить запись активности. id: ID записи, date: YYYY-MM-DD."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.delete(f"{BASE_URL}/api/activity", headers=HEADERS, params={"id": id, "date": date})
+        return resp.text
+
+
+# ============================================================
+# ДОСКИ (BOARDS)
+# ============================================================
+
+@mcp.tool()
+async def boards_list() -> str:
+    """Получить список всех досок с их статусами и настройками полей."""
+    return await _get("/api/boards")
+
+
+@mcp.tool()
+async def boards_get_items(board_id: str, status: str = "") -> str:
+    """Получить элементы доски. board_id: ID доски, status: фильтр по статусу (опционально)."""
+    params: dict = {"board_id": board_id}
+    if status:
+        params["status"] = status
+    return await _get("/api/boards/items", params)
+
+
+@mcp.tool()
+async def boards_create_item(
+    board_id: str,
+    title: str,
+    status: str = "",
+    description: str = "",
+    extra_fields: str = "",
+) -> str:
+    """Создать элемент доски. board_id: ID доски, title: название, status: статус (по умолчанию первый), extra_fields: JSON строка с дополнительными полями (priority, amount, deadline, comment, assignee)."""
+    body: dict = {"board_id": board_id, "title": title}
+    if status:
+        body["status"] = status
+    if description:
+        body["description"] = description
+    if extra_fields:
+        body["extra_fields"] = json.loads(extra_fields)
+    return await _post("/api/boards/items", body)
+
+
+@mcp.tool()
+async def boards_update_item(
+    id: str,
+    title: str = "",
+    status: str = "",
+    description: str = "",
+    extra_fields: str = "",
+) -> str:
+    """Обновить элемент доски по id. Передай только поля которые нужно изменить. extra_fields: JSON строка."""
+    body: dict = {"id": id}
+    if title:
+        body["title"] = title
+    if status:
+        body["status"] = status
+    if description:
+        body["description"] = description
+    if extra_fields:
+        body["extra_fields"] = json.loads(extra_fields)
+    return await _put("/api/boards/items", body)
+
+
+@mcp.tool()
+async def boards_delete_item(id: str) -> str:
+    """Удалить элемент доски по id."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.delete(f"{BASE_URL}/api/boards/items", headers=HEADERS, params={"id": id})
+        return resp.text
+
+
+@mcp.tool()
+async def boards_urgent_items() -> str:
+    """Получить срочные элементы из всех досок + срочные задачи для WorkScreen."""
+    return await _get("/api/boards/urgent-items")
+
+
+# ============================================================
+# ЦЕЛИ (GOALS)
+# ============================================================
+
+@mcp.tool()
+async def goals_list() -> str:
+    """Получить все цели пользователя."""
+    return await _get("/api/goals")
+
+
+@mcp.tool()
+async def goals_create(
+    title: str,
+    target_value: float,
+    frequency: str = "daily",
+    metric_type: str = "count",
+    deadline: str = "",
+) -> str:
+    """Создать цель. title: название, target_value: целевое значение, frequency: daily/weekly/monthly, metric_type: count/percent/minutes, deadline: YYYY-MM-DD."""
+    body: dict = {"title": title, "target_value": target_value, "frequency": frequency, "metric_type": metric_type}
+    if deadline:
+        body["deadline"] = deadline
+    return await _post("/api/goals", body)
+
+
+@mcp.tool()
+async def goals_update(id: str, current_value: float = -1, status: str = "", title: str = "") -> str:
+    """Обновить цель. current_value: текущее значение, status: active/completed/paused."""
+    body: dict = {"id": id}
+    if current_value >= 0:
+        body["current_value"] = current_value
+    if status:
+        body["status"] = status
+    if title:
+        body["title"] = title
+    return await _put("/api/goals", body)
+
+
+# ============================================================
+# КАЙДЗЕН
+# ============================================================
+
+@mcp.tool()
+async def kaizen_get(date: str = "") -> str:
+    """Получить записи Кайдзен за дату (утро/вечер/суббота). date: YYYY-MM-DD."""
+    params = {}
+    if date:
+        params["date"] = date
+    return await _get("/api/kaizen", params or None)
+
+
+@mcp.tool()
+async def kaizen_create(
+    date: str,
+    entry_type: str,
+    focus: str = "",
+    focus_done: bool = False,
+    loss_area: str = "",
+    kaizen_action: str = "",
+    yesterday_kaizen_done: bool = False,
+) -> str:
+    """Создать запись Кайдзен. date: YYYY-MM-DD, entry_type: morning/evening/saturday. focus: фокус дня (утро), loss_area: область потери (вечер), kaizen_action: действие (вечер)."""
+    body: dict = {"date": date, "type": entry_type}
+    if focus:
+        body["focus"] = focus
+    body["focus_done"] = focus_done
+    if loss_area:
+        body["loss_area"] = loss_area
+    if kaizen_action:
+        body["kaizen_action"] = kaizen_action
+    body["yesterday_kaizen_done"] = yesterday_kaizen_done
+    return await _post("/api/kaizen", body)
+
+
+# ============================================================
+# ЖУРНАЛ
+# ============================================================
+
+@mcp.tool()
+async def journal_list(date: str = "") -> str:
+    """Получить записи журнала за дату. date: YYYY-MM-DD."""
+    params = {}
+    if date:
+        params["date"] = date
+    return await _get("/api/journal", params or None)
+
+
+@mcp.tool()
+async def journal_create(date: str, content: str, entry_type: str = "reflection") -> str:
+    """Создать запись в журнале. date: YYYY-MM-DD, entry_type: reflection/gratitude/idea/note, content: текст."""
+    return await _post("/api/journal", {"date": date, "type": entry_type, "content": content})
+
+
+# ============================================================
+# НАСТРОЕНИЕ
+# ============================================================
+
+@mcp.tool()
+async def mood_get(date: str = "") -> str:
+    """Получить записи настроения за дату. date: YYYY-MM-DD."""
+    params = {}
+    if date:
+        params["date"] = date
+    return await _get("/api/mood", params or None)
+
+
+@mcp.tool()
+async def mood_create(date: str, score: int, time_of_day: str = "morning", notes: str = "") -> str:
+    """Записать настроение. date: YYYY-MM-DD, score: 1-5, time_of_day: morning/evening, notes: заметка."""
+    body: dict = {"date": date, "score": score, "time_of_day": time_of_day}
+    if notes:
+        body["notes"] = notes
+    return await _post("/api/mood", body)
+
+
+# ============================================================
+# ISSUES
+# ============================================================
+
+@mcp.tool()
+async def issues_list(status: str = "open") -> str:
+    """Получить список issues (баги, фичи). status: open/resolved/all."""
+    params = {}
+    if status and status != "all":
+        params["status"] = status
+    return await _get("/api/issues", params or None)
+
+
+@mcp.tool()
+async def issues_create(title: str, category: str = "bug", priority: str = "medium", description: str = "") -> str:
+    """Создать issue. category: bug/feature/improvement, priority: low/medium/high."""
+    body: dict = {"title": title, "category": category, "priority": priority}
+    if description:
+        body["description"] = description
+    return await _post("/api/issues", body)
+
+
+# ============================================================
+# WHOOP
+# ============================================================
+
+@mcp.tool()
+async def whoop_sync(date: str = "") -> str:
+    """Синхронизировать данные Whoop за дату. date: YYYY-MM-DD (по умолчанию сегодня)."""
+    params = {}
+    if date:
+        params["date"] = date
+    return await _get("/api/whoop/sync", params or None)
+
+
+@mcp.tool()
+async def whoop_trends(days: int = 7) -> str:
+    """Тренды Whoop за N дней: HRV, пульс покоя, strain, качество сна. days: 1-30."""
+    return await _get("/api/whoop/trends", {"days": str(days)})
+
+
+# ============================================================
+# ЧЕКИН
+# ============================================================
+
+@mcp.tool()
+async def checkin_get(date: str = "") -> str:
+    """Получить чекин за дату. date: YYYY-MM-DD."""
+    params = {}
+    if date:
+        params["date"] = date
+    return await _get("/api/checkin", params or None)
+
+
+@mcp.tool()
+async def checkin_create(date: str, answers: str) -> str:
+    """Создать чекин. date: YYYY-MM-DD, answers: JSON строка с ответами."""
+    return await _post("/api/checkin", {"date": date, "answers": json.loads(answers)})
+
+
+# ============================================================
+# XP
+# ============================================================
+
+@mcp.tool()
+async def get_xp(date: str = "") -> str:
+    """Получить XP breakdown за дату. date: YYYY-MM-DD."""
+    params = {}
+    if date:
+        params["date"] = date
+    return await _get("/api/xp", params or None)
+
+
+# ============================================================
 # ЗАПУСК
 # ============================================================
 
